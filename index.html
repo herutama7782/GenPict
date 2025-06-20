@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Prompt Generator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Import Inter font for a modern look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f3f4f6; /* bg-gray-100 */
+        }
+        /* Custom styles for loading spinner */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #ffffff; /* White color for the spinner */
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-4xl mx-auto mb-6 sm:p-8 md:p-10 lg:p-12">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6 sm:text-4xl">
+            Aplikasi Generator Prompt Gambar AI
+        </h1>
+        <p class="text-center text-gray-600 mb-6 text-sm sm:text-base">
+            Unggah gambar referensi Anda, lalu gunakan tombol "Generate Prompt dari Gambar" untuk mendapatkan deskripsi gambar. Anda kemudian dapat menyalin prompt tersebut untuk digunakan di tempat lain.
+        </p>
+
+        <!-- Upload Section -->
+        <div class="mb-8 p-4 border border-gray-200 rounded-lg bg-gray-50 sm:p-6">
+            <label for="image-upload" class="block text-lg font-medium text-gray-700 mb-2 sm:text-xl">
+                1. Unggah Gambar Referensi Anda (Opsional)
+            </label>
+            <input
+                type="file"
+                id="image-upload"
+                accept="image/png, image/jpeg, image/webp"
+                class="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-full file:border-0
+                file:text-sm file:font-semibold
+                file:bg-blue-50 file:text-blue-700
+                hover:file:bg-blue-100 cursor-pointer"
+            />
+            <div id="uploaded-image-container" class="mt-4 flex justify-center hidden">
+                <img
+                    id="uploaded-image"
+                    alt="Uploaded Image"
+                    class="max-w-full h-auto max-h-64 rounded-lg shadow-md border border-gray-200 object-contain"
+                />
+            </div>
+        </div>
+
+        <!-- Prompt Section -->
+        <div class="mb-8 p-4 border border-gray-200 rounded-lg bg-gray-50 sm:p-6">
+            <label for="prompt-textarea" class="block text-lg font-medium text-gray-700 mb-2 sm:text-xl">
+                2. Prompt Gambar:
+            </label>
+            <textarea
+                id="prompt-textarea"
+                class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-800 h-40 resize-y sm:p-4"
+                placeholder="Tekan 'Generate Prompt dari Gambar' untuk mendapatkan deskripsi..."
+            ></textarea>
+            <button
+                id="generate-prompt-button"
+                class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-full shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 mb-4 sm:py-4"
+            >
+                <span id="generate-prompt-text">Generate Prompt dari Gambar</span>
+                <div id="generate-prompt-spinner" class="spinner mx-auto hidden"></div>
+            </button>
+            <button
+                id="copy-prompt-button"
+                class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-full shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 mt-4 sm:py-4 hidden"
+            >
+                Salin Prompt
+            </button>
+        </div>
+
+        <!-- Error Section -->
+        <div id="error-message" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl relative mb-6 hidden" role="alert">
+            <strong class="font-bold">Error:</strong>
+            <span id="error-text" class="block sm:inline ml-2"></span>
+        </div>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div id="custom-alert-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white p-6 rounded-xl shadow-xl max-w-sm w-full mx-auto text-center">
+            <p id="custom-alert-message" class="text-gray-800 text-lg font-medium mb-4"></p>
+            <button
+                id="custom-alert-ok-button"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-full shadow transition-all duration-200"
+            >
+                OK
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // DOM element references
+        const uploadedImageInput = document.getElementById('image-upload');
+        const uploadedImageContainer = document.getElementById('uploaded-image-container');
+        const uploadedImageDisplay = document.getElementById('uploaded-image');
+        const promptTextarea = document.getElementById('prompt-textarea');
+        const generatePromptButton = document.getElementById('generate-prompt-button');
+        const generatePromptText = document.getElementById('generate-prompt-text');
+        const generatePromptSpinner = document.getElementById('generate-prompt-spinner');
+        const copyPromptButton = document.getElementById('copy-prompt-button');
+        const errorMessageDiv = document.getElementById('error-message');
+        const errorTextSpan = document.getElementById('error-text');
+        const customAlertModal = document.getElementById('custom-alert-modal');
+        const customAlertMessage = document.getElementById('custom-alert-message');
+        const customAlertOkButton = document.getElementById('custom-alert-ok-button');
+
+        // State variables
+        let uploadedImageBase64 = null;
+        let currentPrompt = '';
+
+        // Function to show a custom alert message
+        const showAlert = (message) => {
+            customAlertMessage.textContent = message;
+            customAlertModal.classList.remove('hidden');
+        };
+
+        // Function to hide the custom alert modal
+        customAlertOkButton.onclick = () => {
+            customAlertModal.classList.add('hidden');
+        };
+
+        // Function to display an error message
+        const displayError = (message) => {
+            errorTextSpan.textContent = message;
+            errorMessageDiv.classList.remove('hidden');
+        };
+
+        // Function to hide the error message
+        const hideError = () => {
+            errorMessageDiv.classList.add('hidden');
+            errorTextSpan.textContent = '';
+        };
+
+        // Function to handle image file upload
+        uploadedImageInput.onchange = (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    uploadedImageBase64 = reader.result.split(',')[1]; // Get base64 part
+                    uploadedImageDisplay.src = reader.result; // Set the full data URL for display
+                    uploadedImageContainer.classList.remove('hidden'); // Show the image container
+                    promptTextarea.value = ''; // Clear previous prompt
+                    currentPrompt = ''; // Clear current prompt state
+                    hideError(); // Clear errors
+                    copyPromptButton.classList.add('hidden'); // Hide copy button until new prompt is generated
+                };
+                reader.readAsDataURL(file); // Read the file as a data URL
+            } else {
+                uploadedImageBase64 = null;
+                uploadedImageDisplay.src = '';
+                uploadedImageContainer.classList.add('hidden');
+                promptTextarea.value = '';
+                currentPrompt = '';
+                hideError();
+                copyPromptButton.classList.add('hidden');
+            }
+        };
+
+        // Function to handle changes in the prompt textarea (if user types manually)
+        promptTextarea.oninput = (event) => {
+            currentPrompt = event.target.value;
+            // Show/hide copy button based on prompt content
+            if (currentPrompt.trim()) {
+                copyPromptButton.classList.remove('hidden');
+            } else {
+                copyPromptButton.classList.add('hidden');
+            }
+        };
+
+        // Function to analyze the image and generate a prompt using Gemini API
+        generatePromptButton.onclick = async () => {
+            if (!uploadedImageBase64) {
+                showAlert('Harap unggah gambar terlebih dahulu untuk dianalisis.');
+                return;
+            }
+
+            // Show loading state
+            generatePromptText.classList.add('hidden');
+            generatePromptSpinner.classList.remove('hidden');
+            generatePromptButton.disabled = true;
+            hideError(); // Clear previous errors
+
+            try {
+                // Prompt for the AI model to describe the image, specifically requesting English output.
+                const analysisPrompt = "Describe this image in detail, focusing on elements, colors, style, and composition. The description should be detailed enough to generate a similar image using an AI text-to-image model. Provide the description in English only, without any other conversational text or explanations.";
+                
+                // Construct the payload for Gemini 2.0 Flash (multimodal)
+                const payload = {
+                    contents: [
+                        {
+                            role: "user",
+                            parts: [
+                                { text: analysisPrompt },
+                                {
+                                    inlineData: {
+                                        mimeType: "image/jpeg", // Assuming JPEG, adjust if needed for other types
+                                        data: uploadedImageBase64
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                };
+                const apiKey = "AIzaSyDOhsUEyVD2h6MSOSIzpevKAHcTw9KqHi0"; // API key is handled by Canvas runtime
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                // Make the fetch call to Gemini API for image analysis
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    currentPrompt = "Created Image, " + text; // Add "Created Image, " prefix
+                    promptTextarea.value = currentPrompt; // Set the generated prompt to the textarea
+                    copyPromptButton.classList.remove('hidden'); // Show copy button
+                } else {
+                    displayError('Failed to analyze image or generate prompt. Check the image or try again.');
+                    console.error("Unexpected API response structure for analysis:", result);
+                }
+            } catch (err) {
+                displayError('An error occurred while analyzing the image: ' + err.message);
+                console.error("Error during image analysis:", err);
+            } finally {
+                // Hide loading state
+                generatePromptText.classList.remove('hidden');
+                generatePromptSpinner.classList.add('hidden');
+                generatePromptButton.disabled = false;
+            }
+        };
+
+        // Function to copy the generated prompt to the clipboard
+        copyPromptButton.onclick = () => {
+            if (currentPrompt.trim()) {
+                // Create a temporary textarea element
+                const textarea = document.createElement('textarea');
+                textarea.value = currentPrompt;
+                document.body.appendChild(textarea); // Append it to the body
+                textarea.select(); // Select the text
+                try {
+                    document.execCommand('copy'); // Execute copy command
+                    showAlert('Prompt berhasil disalin ke clipboard!');
+                } catch (err) {
+                    showAlert('Gagal menyalin prompt. Silakan salin secara manual.');
+                    console.error('Failed to copy prompt:', err);
+                }
+                document.body.removeChild(textarea); // Remove the temporary textarea
+            } else {
+                showAlert('Tidak ada prompt untuk disalin.');
+            }
+        };
+    </script>
+</body>
+</html>
