@@ -320,10 +320,14 @@
                         }
                     ],
                 };
-                // API key provided by the user. Canvas runtime will provide it if left empty.
-                const apiKey = "AIzaSyDOhsUEyVD2h6MSOSIzpevKAHcTw9KqHi0"; 
-                // Gemini API endpoint for generating content from Gemini 2.0 Flash model
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+             // API key (sebaiknya jangan disimpan di client)
+const apiKey = "AIzaSyDe1NGKWZCZ-ixsrcpR9iJQ0jS5IFRLb48";
+
+// Gunakan model 2.5 Flash
+const MODEL_ID = "gemini-2.5-flash";
+
+// Endpoint generateContent
+const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent?key=${apiKey}`;
 
                 // Make the asynchronous fetch call to the Gemini API
                 const response = await fetch(apiUrl, {
